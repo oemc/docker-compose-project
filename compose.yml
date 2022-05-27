@@ -1,0 +1,93 @@
+version: '3.9'
+
+services:
+  datacache:
+    image: redis:7.0.0
+    ports:
+      - 6379:6379
+    volumes:
+      - redis:/bitnami/redis/data
+    environment:
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
+    command: [
+      "bash", "-c",
+      '
+       docker-entrypoint.sh
+       --requirepass "$$(cat $$REDIS_PASSWORD_FILE)"
+      '
+    ]
+    networks:
+      - omc-nclouds
+    secrets:
+      - redis_password
+
+  database:
+    image: mariadb:10.7.3
+    ports:
+      - 3306:3306
+    volumes:
+      - mariadb:/var/lib/mysql
+      - mdb_init:/init
+    environment:
+      - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/mariadb_root_password
+      - MYSQL_PASSWORD_FILE=/run/secrets/mariadb_password
+      - MYSQL_USER=nclouds_user
+      - MYSQL_DATABASE=nclouds_app
+    command: --init-file /init/mariadb_init.sql
+    networks:
+      - omc-nclouds
+    secrets:
+      - mariadb_root_password
+      - mariadb_password
+
+  api:
+    image: omc-nclouds-api
+    build:
+      context: ./nclouds-api
+      dockerfile: ./Dockerfile
+    ports:
+     - 3001:3001
+    environment:
+      - MARIADB_HOST=database
+      - MARIADB_PORT=3306
+      - MARIADB_USER=nclouds_user
+      - MARIADB_DATABASE=nclouds_app
+      - REDIS_HOST=datacache
+      - REDIS_PORT=6379
+    depends_on:
+      - database
+      - datacache
+    networks:
+      - omc-nclouds
+    secrets:
+      - mariadb_password
+      - redis_password
+  
+  web:
+    image: omc-nclouds-web
+    build:
+      context: ./nclouds-app
+      dockerfile: ./Dockerfile
+    ports:
+     - 8000:80
+    depends_on:
+      - api
+    networks:
+      - omc-nclouds
+
+volumes:
+  mariadb:
+  redis:
+  mdb_init:
+
+networks:
+  omc-nclouds:
+    driver: bridge
+
+secrets:
+  mariadb_root_password:
+    file: ./mariadb_root_password.txt
+  mariadb_password:
+    file: ./mariadb_password.txt
+  redis_password:
+    file: ./redis_password.txt
