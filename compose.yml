@@ -41,10 +41,7 @@ services:
       - mariadb_password
 
   api:
-    image: omc-nclouds-api
-    build:
-      context: ./nclouds-api
-      dockerfile: ./Dockerfile
+    image: oemc/nclouds-api:1.0.0
     ports:
      - 3001:3001
     environment:
@@ -64,10 +61,7 @@ services:
       - redis_password
   
   web:
-    image: omc-nclouds-web
-    build:
-      context: ./nclouds-app
-      dockerfile: ./Dockerfile
+    image: oemc/nclouds-app:1.0.0
     ports:
      - 8000:80
     depends_on:
